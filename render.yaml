@@ -6,6 +6,7 @@
 #    - CORS_ORIGIN: URL do frontend (ex.: https://historico-escolar.vercel.app)
 #    - APP_PUBLIC_URL: mesma URL (links de validação de documentos)
 # 3) Na Vercel, defina BACKEND_URL = URL pública deste serviço (ex.: https://historico-escolar-api.onrender.com)
+# Plano free: sem preDeployCommand — migrações rodam no start antes do Nest.
 
 databases:
   - name: historico-escolar-db
@@ -22,8 +23,7 @@ services:
     branch: main
     rootDir: backend
     buildCommand: npm ci && npx prisma generate && npm run build
-    preDeployCommand: npx prisma migrate deploy
-    startCommand: npm run start:prod
+    startCommand: npx prisma migrate deploy && npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
