@@ -1,16 +1,18 @@
-# Blueprint Render — API NestJS (Web Service free)
+# Blueprint Render — API NestJS + Neon (Postgres na nuvem)
 # https://render.com/docs/infrastructure-as-code
+# https://neon.tech/docs/connect/connection-strings
 #
-# PostgreSQL NÃO é criado aqui: a Render permite só UM banco Postgres "free" ativo por conta.
-# Opções:
-#   • Use um Postgres que você já tenha na Render (copie a Internal/External Database URL), ou
-#   • Apague o outro banco free antigo no dashboard e crie um novo Postgres manualmente, ou
-#   • Use Neon / Supabase / outro Postgres e cole a connection string.
+# Neon:
+#   1) Crie projeto em https://console.neon.tech
+#   2) Em "Connection details", copie a URI (role, host ep-*.neon.tech, database neondb).
+#   3) Garanta SSL na URL: adicione ?sslmode=require se o console não incluir.
+#   4) Para Prisma migrate na Render, prefira a string "Direct" (sem pooler) no Neon;
+#      se usar apenas "Pooled", migrações podem falhar — nesse caso veja DIRECT_URL no .env.example.
 #
-# Na criação do Blueprint, o Render pedirá DATABASE_URL (sync: false).
+# No Blueprint, o Render pede DATABASE_URL (sync: false) — cole a URI do Neon.
 #
-# Depois do deploy: na Vercel defina BACKEND_URL = URL pública desta API.
-# CORS_ORIGIN / APP_PUBLIC_URL: ajuste no painel se não for historico-escolar.vercel.app
+# Depois: na Vercel, BACKEND_URL = URL pública desta API na Render.
+# Ajuste CORS_ORIGIN / APP_PUBLIC_URL no painel se não for historico-escolar.vercel.app
 
 services:
   - type: web
