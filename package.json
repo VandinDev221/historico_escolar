@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Sistema SaaS multi-tenancy para histórico escolar municipal",
+  "devDependencies": {
+    "next": "14.2.0"
+  },
   "scripts": {
     "backend:dev": "cd backend && npm run start:dev",
     "backend:build": "cd backend && npm run build",
