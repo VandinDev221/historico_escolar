@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import { isDevLogsApiEnabled } from '@/lib/devLogsApiAvailability';
 import { GlobalSearch } from './GlobalSearch';
 
 interface AppLayoutProps {
@@ -159,16 +160,18 @@ export function AppLayout({ children }: AppLayoutProps) {
                 >
                   Usuários
                 </Link>
-                <Link
-                  href="/dev/logs"
-                  className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
-                    pathname.startsWith('/dev')
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  }`}
-                >
-                  Logs (dev)
-                </Link>
+                {isDevLogsApiEnabled && (
+                  <Link
+                    href="/dev/logs"
+                    className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+                      pathname.startsWith('/dev')
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    Logs (dev)
+                  </Link>
+                )}
               </li>
             )}
           </ul>

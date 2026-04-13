@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, SituacaoMatricula } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -72,6 +72,60 @@ async function main() {
         workload: 80,
       })),
     });
+  }
+
+  const demoCount = await prisma.student.count({ where: { schoolId: school.id } });
+  if (demoCount === 0) {
+    const configs = await prisma.gradeConfig.findMany({ where: { schoolId: school.id, series: '1º Ano' } });
+    const alunos = [
+      { nome: 'Maria Eduarda Silva', cpf: '111.222.333-44' },
+      { nome: 'João Pedro Santos', cpf: '111.222.333-55' },
+      { nome: 'Ana Clara Oliveira', cpf: '111.222.333-66' },
+      { nome: 'Lucas Ferreira Costa', cpf: '111.222.333-77' },
+      { nome: 'Beatriz Almeida Souza', cpf: '111.222.333-88' },
+      { nome: 'Gabriel Martins Lima', cpf: '111.222.333-99' },
+    ];
+    let idx = 0;
+    for (const { nome, cpf } of alunos) {
+      const birthDate = new Date(2015, idx % 12, 10 + idx);
+      idx++;
+      const student = await prisma.student.create({
+        data: {
+          schoolId: school.id,
+          name: nome,
+          birthDate,
+          cpf,
+          address: 'Rua do Seed, 1 — Centro',
+          neighborhood: 'Centro',
+          contacts: {
+            create: [{ name: `Responsável (${nome.split(' ')[0]})`, phone: '19999990001', isPrimary: true }],
+          },
+        },
+      });
+      const enrollment = await prisma.enrollment.create({
+        data: {
+          studentId: student.id,
+          schoolId: school.id,
+          year: 2024,
+          series: '1º Ano',
+          situation: SituacaoMatricula.CURSANDO,
+        },
+      });
+      for (const config of configs) {
+        for (let bim = 1; bim <= 4; bim++) {
+          await prisma.grade.create({
+            data: {
+              enrollmentId: enrollment.id,
+              gradeConfigId: config.id,
+              bimester: bim,
+              score: 7 + (bim + idx) * 0.15,
+              frequency: 88 + bim,
+            },
+          });
+        }
+      }
+    }
+    console.log(`Seed: ${alunos.length} alunos de demonstração com matrícula 2024 e notas (1º Ano).`);
   }
 
   if (baseUsersAlreadyExisted) {

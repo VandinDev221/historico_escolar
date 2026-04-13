@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import { isDevLogsApiEnabled } from '@/lib/devLogsApiAvailability';
 import Link from 'next/link';
 
 function useAuthHydrated() {
@@ -279,6 +280,11 @@ export default function DevLogsPage() {
   };
 
   useEffect(() => {
+    if (!hydrated) return;
+    if (!isDevLogsApiEnabled || user?.role !== 'SUPER_ADMIN') {
+      setLoading(false);
+      return;
+    }
     fetchLogs();
     fetchBlocklist();
     if (!autoRefresh) return;
@@ -287,13 +293,14 @@ export default function DevLogsPage() {
       fetchBlocklist();
     }, 1500);
     return () => clearInterval(t);
-  }, [autoRefresh]);
+  }, [autoRefresh, hydrated, user?.role]);
 
   useEffect(() => {
     if (autoRefresh && bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [logs, autoRefresh]);
 
   const clearLogs = async () => {
+    if (!isDevLogsApiEnabled) return;
     await fetch('/api/dev/logs/clear', { method: 'GET', headers: getAuthHeaders() });
     setLogs([]);
   };
@@ -312,6 +319,7 @@ export default function DevLogsPage() {
   };
 
   const blockIp = async (ip: string) => {
+    if (!isDevLogsApiEnabled) return;
     if (!ip || !confirm(`Bloquear o IP ${ip}? Ele deixará de acessar a API até você desbloquear.`)) return;
     setBlockFeedback(null);
     try {
@@ -334,6 +342,7 @@ export default function DevLogsPage() {
   };
 
   const unblockIp = async (ip: string) => {
+    if (!isDevLogsApiEnabled) return;
     setBlockFeedback(null);
     try {
       const res = await fetch(`/api/dev/block-ip/${encodeURIComponent(ip)}`, {
@@ -388,7 +397,7 @@ export default function DevLogsPage() {
       await fetch(url, { headers: getAuthHeaders() });
     } finally {
       setSimulating(null);
-      setTimeout(fetchLogs, 300);
+      if (isDevLogsApiEnabled) setTimeout(fetchLogs, 300);
     }
   };
 
@@ -404,6 +413,32 @@ export default function DevLogsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Acesso restrito ao desenvolvedor.</p>
+      </div>
+    );
+  }
+
+  if (user?.role === 'SUPER_ADMIN' && !isDevLogsApiEnabled) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col">
+        <header className="border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+          <Link href="/" className="text-sm text-blue-400 hover:underline">
+            ← Voltar
+          </Link>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-lg text-center space-y-3 text-zinc-400">
+            <p className="text-zinc-200 font-medium">Logs em tempo real indisponíveis neste ambiente</p>
+            <p>
+              Neste deploy as rotas <code className="text-amber-400/90">/api/dev/*</code> ficam desligadas no servidor
+              (403). A interface não tenta mais buscá-las para evitar ruído no console.
+            </p>
+            <p className="text-sm">
+              Use <code className="text-zinc-300">next dev</code> localmente ou, se precisar do painel contra uma API
+              com dev habilitado, defina <code className="text-zinc-300">NEXT_PUBLIC_DEV_API_ENABLED=true</code> no
+              build.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
