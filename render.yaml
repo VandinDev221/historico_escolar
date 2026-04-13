@@ -15,6 +15,7 @@
 # Ajuste CORS_ORIGIN / APP_PUBLIC_URL no painel se não for historico-escolar.vercel.app
 #
 # Build: NODE_ENV=production faz o npm ci omitir devDependencies; --include=dev instala @nestjs/cli e prisma.
+# Start: migrate + db seed (idempotente: cria admin/superadmin se ainda não existirem — evita 401 em base nova).
 
 services:
   - type: web
@@ -25,7 +26,7 @@ services:
     branch: main
     rootDir: backend
     buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && npm run start:prod
+    startCommand: npx prisma migrate deploy && npx prisma db seed && npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION

@@ -39,6 +39,7 @@ armazena_historico/
 - O **`vercel.json` na raiz** faz o build em `frontend/` e define **`outputDirectory`: `frontend/.next`** (sem symlink), para o App Router e o proxy **`/api/*`** serem empacotados corretamente.
 - Na Vercel, define **`BACKEND_URL`** = URL pública HTTPS da API (Render), **sem barra no fim**.
 - Se o deploy falhar ou quiseres simplificar: em **Project Settings → General → Root Directory** usa **`frontend`**, remove overrides de *Build Command* no painel e deixa o **`frontend/vercel.json`** + `package.json` do Next assumirem o fluxo.
+- Na Render, cada arranque corre **`migrate deploy`** e depois **`prisma db seed`** (contas `superadmin` / `admin escolar` só são criadas se ainda não existirem). Login inicial: **admin123** (ver secção Login abaixo).
 
 ## Pré-requisitos
 

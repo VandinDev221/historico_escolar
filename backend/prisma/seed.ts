@@ -4,8 +4,6 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const hash = await bcrypt.hash('admin123', 10);
-
   const municipality = await prisma.municipality.upsert({
     where: { id: 'seed-municipio-1' },
     update: {},
@@ -28,29 +26,39 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: 'superadmin@municipio.gov.br' },
-    update: {},
-    create: {
-      email: 'superadmin@municipio.gov.br',
-      passwordHash: hash,
-      name: 'Super Admin',
-      role: UserRole.SUPER_ADMIN,
-      schoolId: null,
-    },
-  });
+  const [adminUser, superUser] = await Promise.all([
+    prisma.user.findUnique({ where: { email: 'admin@escola.municipio.gov.br' } }),
+    prisma.user.findUnique({ where: { email: 'superadmin@municipio.gov.br' } }),
+  ]);
 
-  await prisma.user.upsert({
-    where: { email: 'admin@escola.municipio.gov.br' },
-    update: {},
-    create: {
-      email: 'admin@escola.municipio.gov.br',
-      passwordHash: hash,
-      name: 'Admin Escolar',
-      role: UserRole.ADMIN_ESCOLAR,
-      schoolId: school.id,
-    },
-  });
+  const baseUsersAlreadyExisted = Boolean(superUser && adminUser);
+
+  if (!baseUsersAlreadyExisted) {
+    const hash = await bcrypt.hash('admin123', 10);
+    await prisma.user.upsert({
+      where: { email: 'superadmin@municipio.gov.br' },
+      update: {},
+      create: {
+        email: 'superadmin@municipio.gov.br',
+        passwordHash: hash,
+        name: 'Super Admin',
+        role: UserRole.SUPER_ADMIN,
+        schoolId: null,
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { email: 'admin@escola.municipio.gov.br' },
+      update: {},
+      create: {
+        email: 'admin@escola.municipio.gov.br',
+        passwordHash: hash,
+        name: 'Admin Escolar',
+        role: UserRole.ADMIN_ESCOLAR,
+        schoolId: school.id,
+      },
+    });
+  }
 
   // Disciplinas padrão para 1º Ano
   const subjects = ['Língua Portuguesa', 'Matemática', 'Ciências', 'História', 'Geografia', 'Artes', 'Educação Física'];
@@ -66,7 +74,12 @@ async function main() {
     });
   }
 
-  console.log('Seed concluído. Usuários: superadmin@municipio.gov.br e admin@escola.municipio.gov.br / senha: admin123');
+  if (baseUsersAlreadyExisted) {
+    console.log(
+      'Seed: município/escola/disciplinas verificados; contas base já existiam (superadmin + admin escolar).',
+    );
+  }
+  console.log('Seed concluído. Login: superadmin@municipio.gov.br ou admin@escola.municipio.gov.br / senha: admin123');
 }
 
 main()
