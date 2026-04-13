@@ -41,6 +41,17 @@ armazena_historico/
 - Se o deploy falhar ou quiseres simplificar: em **Project Settings → General → Root Directory** usa **`frontend`**, remove overrides de *Build Command* no painel e deixa o **`frontend/vercel.json`** + `package.json` do Next assumirem o fluxo.
 - Na Render, o arranque corre **`npm run start:render`** (`migrate deploy` → `prisma db seed` → API). O **`prisma:seed:city`** não faz parte do arranque: leva **15–30+ min** e a Render exige porta aberta para o health check antes de uns minutos, o que provoca falha (“no open ports”). Para popular a **Cidade Grande** na Neon, corre **`npm run prisma:seed:city`** uma vez na **Shell** do serviço (ou no PC com o `.env` apontando à Neon). Login: **admin123** (ver Login abaixo).
 
+### Render: ainda aparece `prisma:seed:city` nos logs / “Port scan timeout”
+
+Se o log de arranque mostrar `Running 'npx prisma migrate deploy && ... && npm run prisma:seed:city && ...'`, o serviço **não** está a usar o `render.yaml` atual: o **Start Command** definido **no painel** da Render tem prioridade e ficou com o valor antigo.
+
+1. No dashboard: **Web Service da API** → **Settings** → **Build & Deploy**.
+2. Em **Start Command**, apaga o comando longo e cola exatamente: `npm run start:render`
+3. Confirma **Root Directory** = `backend` (como no blueprint).
+4. **Save changes** e faz **Manual Deploy** da branch `main` (último commit do GitHub).
+
+Se o serviço foi criado só à mão (sem Blueprint), o `render.yaml` do repositório **não** atualiza o Start Command sozinho: tens de alterar manualmente como acima. Depois do deploy verde, corre `npm run prisma:seed:city` na **Shell** se precisares da massa Cidade Grande.
+
 ## Pré-requisitos
 
 - Node.js 18+
