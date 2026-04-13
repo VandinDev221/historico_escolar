@@ -75,6 +75,7 @@ CREATE TABLE "AttendanceRecord" (
     "enrollmentId" TEXT NOT NULL,
     "date" DATE NOT NULL,
     "present" BOOLEAN NOT NULL DEFAULT true,
+    "atestadoImageUrl" VARCHAR(500),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
