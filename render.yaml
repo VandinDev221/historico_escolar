@@ -6,6 +6,7 @@
 #   - DATABASE_URL = **Pooled** (host com "-pooler") — runtime da API.
 #   - DATABASE_URL_UNPOOLED = **Direct** (sem "-pooler") — Prisma Migrate usa via directUrl no schema (evita P1002).
 #   Acrescente em ambas, se faltar: ?sslmode=require&connect_timeout=30 (cold start / TLS).
+#   PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 evita P1002 (timeout do pg_advisory_lock) com Neon/latência; só um deploy por vez.
 # Se o Start Command no painel da Render for manual, apague-o para o blueprint abaixo valer.
 #
 # No Blueprint, o Render pede DATABASE_URL e DATABASE_URL_UNPOOLED (sync: false).
@@ -35,6 +36,8 @@ services:
         sync: false
       - key: DATABASE_URL_UNPOOLED
         sync: false
+      - key: PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK
+        value: "1"
       - key: JWT_SECRET
         generateValue: true
       - key: TRUST_PROXY
