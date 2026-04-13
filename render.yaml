@@ -2,14 +2,13 @@
 # https://render.com/docs/infrastructure-as-code
 # https://neon.tech/docs/connect/connection-strings
 #
-# Neon:
-#   1) Crie projeto em https://console.neon.tech
-#   2) Em "Connection details", copie a URI (role, host ep-*.neon.tech, database neondb).
-#   3) Garanta SSL na URL: adicione ?sslmode=require se o console não incluir.
-#   4) Para Prisma migrate na Render, prefira a string "Direct" (sem pooler) no Neon;
-#      se usar apenas "Pooled", migrações podem falhar — nesse caso veja DIRECT_URL no .env.example.
+# Neon (duas URIs no painel da Render):
+#   - DATABASE_URL = connection string **Pooled** (host com "-pooler").
+#   - DIRECT_URL   = connection string **Direct** (host sem "-pooler"). Obrigatória: `prisma migrate deploy` usa
+#     advisory lock e estoura P1002 com só o pooler.
+#   SSL: ?sslmode=require nas duas se o console não incluir.
 #
-# No Blueprint, o Render pede DATABASE_URL (sync: false) — cole a URI do Neon.
+# No Blueprint, o Render pede DATABASE_URL e DIRECT_URL (sync: false).
 #
 # Depois: na Vercel, BACKEND_URL = URL pública desta API na Render.
 # Ajuste CORS_ORIGIN / APP_PUBLIC_URL no painel se não for historico-escolar.vercel.app
@@ -33,6 +32,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: JWT_SECRET
         generateValue: true

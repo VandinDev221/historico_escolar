@@ -55,11 +55,10 @@ Isso sobe PostgreSQL na porta 5432 e Redis na 6379.
 ```bash
 cd backend
 cp .env.example .env
-# Ajuste DATABASE_URL e JWT_SECRET no .env
+# Ajuste DATABASE_URL, DIRECT_URL (igual à DATABASE_URL no Docker local) e JWT_SECRET no .env
 npm install
 npx prisma migrate deploy
 npx prisma db seed
-npm run start:dev
 ```
 
 API: **http://localhost:3001**  
