@@ -39,7 +39,7 @@ armazena_historico/
 - O **`vercel.json` na raiz** faz o build em `frontend/` e define **`outputDirectory`: `frontend/.next`** (sem symlink), para o App Router e o proxy **`/api/*`** serem empacotados corretamente.
 - Na Vercel, define **`BACKEND_URL`** = URL pública HTTPS da API (Render), **sem barra no fim**.
 - Se o deploy falhar ou quiseres simplificar: em **Project Settings → General → Root Directory** usa **`frontend`**, remove overrides de *Build Command* no painel e deixa o **`frontend/vercel.json`** + `package.json` do Next assumirem o fluxo.
-- Na Render, cada arranque corre **`migrate deploy`**, **`prisma db seed`** e **`prisma:seed:city`** (Cidade Grande → Neon: 18 EMEFs, ~350 alunos/escola, etc.). Na **primeira** vez pode levar **15–30 min**; depois o script **deteta** se a massa já existe e **sai em segundos**. Emergência: `SKIP_SEED_CITY=1` no painel da Render. Login: **admin123** (ver Login abaixo).
+- Na Render, o arranque corre **`npm run start:render`** (`migrate deploy` → `prisma db seed` → API). O **`prisma:seed:city`** não faz parte do arranque: leva **15–30+ min** e a Render exige porta aberta para o health check antes de uns minutos, o que provoca falha (“no open ports”). Para popular a **Cidade Grande** na Neon, corre **`npm run prisma:seed:city`** uma vez na **Shell** do serviço (ou no PC com o `.env` apontando à Neon). Login: **admin123** (ver Login abaixo).
 
 ## Pré-requisitos
 
@@ -91,16 +91,16 @@ App: **http://localhost:3000**
 
 O seed **Cidade Grande** cria o município **Cidade Grande**, **18 EMEFs**, **350 alunos por escola** (~6.300 no total), matrículas (2022–2024) e notas. O seed pequeno (`npx prisma db seed`) continua a criar só a “EMEF Exemplo”; **a massa grande é este script**.
 
-**Em produção (Render → Neon):** no arranque do serviço já corre `npm run prisma:seed:city` depois das migrações e do seed base. O que vês na **Vercel** vem desta base. Na **primeira** subida completa pode levar **15–30 min**; quando a base já está populada, o script **deteta** e termina em segundos.
+**Em produção (Render → Neon):** depois do primeiro deploy com a API no ar, abre a **Shell** do Web Service na Render (mesmas variáveis `DATABASE_URL` / `DATABASE_URL_UNPOOLED`) e executa `npm run prisma:seed:city` se quiseres a massa completa (~6.300 alunos). Alternativa mais leve para escolas já criadas mas vazias: `npm run prisma:seed:fill-empty`. O que vês na **Vercel** reflete os dados que estiverem na Neon após estes passos.
 
-**Local (manual):**
+**Local (ou PC apontando à Neon):**
 
 ```bash
 cd backend
 npm run prisma:seed:city
 ```
 
-- Variáveis opcionais (também na Render): `SEED_CITY_NUM_ESCOLAS`, `SEED_CITY_ALUNOS_POR_ESCOLA` (padrão 18 e 350). `SKIP_SEED_CITY=1` desliga o seed-city (ex.: timeout no primeiro deploy — depois corre `npm run prisma:seed:city` uma vez no PC apontando à Neon).
+- Variáveis opcionais: `SEED_CITY_NUM_ESCOLAS`, `SEED_CITY_ALUNOS_POR_ESCOLA` (padrão 18 e 350). Para encher só escolas sem alunos: `npm run prisma:seed:fill-empty` (ver `SEED_FILL_PER_SCHOOL` / `SEED_FILL_MAX_SCHOOLS` no script).
 - Se já houver dados dessas escolas mas **abaixo** do limiar de “já completo”, o script **limpa** alunos/matrículas/notas dessas EMEFs e gera de novo.
 
 ### 5.1 Cópia fiel do Postgres local → Neon (opcional)
