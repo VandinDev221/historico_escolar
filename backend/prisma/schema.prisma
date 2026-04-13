@@ -1,0 +1,342 @@
+// Sistema de Histórico Escolar Municipal - Schema Prisma
+// Multi-tenancy: escola (schoolId) em entidades sensíveis
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN    // Secretaria Municipal
+  ADMIN_ESCOLAR  // Diretor/Coordenador
+  PROFESSOR
+  PAIS_RESPONSAVEL
+}
+
+enum SituacaoMatricula {
+  CURSANDO
+  CONCLUIDO
+  TRANSFERIDO
+  EVADIDO
+}
+
+enum DocumentType {
+  MATRICULA
+  TRANSFERENCIA
+  CONCLUSAO
+  FREQUENCIA
+  HISTORICO_ESCOLAR
+}
+
+// Tipos de documentos pessoais do aluno (para ambiente de produção)
+enum StudentDocumentType {
+  RG
+  CPF
+  CERTIDAO_NASCIMENTO
+  FOTO_3X4
+  COMPROVANTE_RESIDENCIA
+  OUTRO
+}
+
+// Município / Secretaria (tenant raiz)
+model Municipality {
+  id        String   @id @default(cuid())
+  name      String
+  state     String   @db.VarChar(2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  schools   School[]
+}
+
+// Turno para turmas
+enum Turno {
+  MANHA
+  TARDE
+  NOITE
+  INTEGRAL
+}
+
+// Escola (tenant por escola)
+model School {
+  id             String   @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  name           String
+  code           String?  @unique  // Código INEP
+  address        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User[]
+  students       Student[]
+  enrollments    Enrollment[]
+  grades         GradeConfig[]
+  documents      Document[]
+  yearConfigs    SchoolYearConfig[]
+  turmas         Turma[]
+  promotionRules PromotionRule[]
+}
+
+// Turma (sala de aula: ano, série, nome ex. 6ºA, turno)
+model Turma {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  year      Int      // Ano letivo
+  series    String   // Ex: "6º Ano"
+  name      String   // Ex: "6ºA", "6ºB"
+  turno     Turno?   // MANHA, TARDE, NOITE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  enrollments Enrollment[]
+  @@unique([schoolId, year, name])
+  @@index([schoolId, year])
+}
+
+// Regras de promoção/retenção por escola (substitui valores fixos 6 e 75%)
+model PromotionRule {
+  id                   String   @id @default(cuid())
+  schoolId             String
+  school               School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  year                 Int?     // null = vale para todos os anos
+  minScore             Float    @default(6)   // Nota mínima para aprovação
+  minFrequencyPercent  Float    @default(75)  // Frequência mínima % (LDB Art. 24)
+  useRecoveryScore     Boolean  @default(true) // Considerar nota de recuperação
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  @@unique([schoolId, year])
+  @@index([schoolId])
+}
+
+// Vínculo responsável (usuário PAIS_RESPONSAVEL) ↔ aluno (portal do responsável)
+enum GuardianRelation {
+  MAE
+  PAI
+  RESPONSAVEL
+  OUTRO
+}
+
+model StudentGuardian {
+  id         String           @id @default(cuid())
+  studentId  String
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relation   GuardianRelation @default(RESPONSAVEL)
+  isPrimary  Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  @@unique([studentId, userId])
+  @@index([userId])
+  @@index([studentId])
+}
+
+// Configuração do ano letivo por escola (LDB: 200 dias, 800h EF / 1000h EM)
+model SchoolYearConfig {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  year              Int      // Ano letivo
+  daysLetivos       Int      @default(200)  // Mínimo LDB
+  cargaHorariaAnual Int      @default(800)  // 800 EF, 1000 EM
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([schoolId, year])
+  @@index([schoolId])
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  schoolId           String?             // null = Super Admin (secretaria)
+  school             School?             @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  email              String              @unique
+  passwordHash       String
+  name               String
+  role               UserRole
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  teacherDisciplines TeacherDiscipline[]
+  conselhoTutelarNotifications Enrollment[]
+  studentGuardians   StudentGuardian[]
+  attendanceJustified AttendanceRecord[]
+  @@index([schoolId])
+  @@index([email, role])
+}
+
+// Aluno (pode ter matrículas em várias escolas ao longo do tempo)
+model Student {
+  id              String   @id @default(cuid())
+  schoolId        String   // Escola atual / de cadastro
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name            String
+  birthDate       DateTime
+  rg              String?
+  cpf             String?  @unique
+  nis             String?
+  address         String?
+  neighborhood    String?  // Bairro (para relatórios por região)
+  addressLat      Float?
+  addressLng      Float?
+  photoUrl        String?
+  certidaoUrl     String?
+  comprovanteUrl  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  contacts        StudentContact[]
+  enrollments     Enrollment[]
+  documents       Document[]
+  studentDocs     StudentDocument[]
+  guardians       StudentGuardian[]
+  @@index([schoolId])
+  @@index([cpf])
+  @@index([name])
+}
+
+// Documentos anexados do aluno (RG, certidão, foto, etc.) — produção
+model StudentDocument {
+  id         String            @id @default(cuid())
+  studentId  String
+  student    Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       StudentDocumentType
+  name       String            // Nome legível (ex.: "RG - frente")
+  filePath   String            // Caminho no storage ou URL
+  mimeType   String?           @db.VarChar(128)
+  sizeBytes  Int?
+  createdAt  DateTime         @default(now())
+  @@index([studentId])
+  @@index([studentId, type])
+}
+
+model StudentContact {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name      String   // Nome do responsável
+  phone     String?
+  email     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([studentId])
+}
+
+// Matrícula por ano letivo
+model Enrollment {
+  id                         String            @id @default(cuid())
+  studentId                  String
+  student                    Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schoolId                   String
+  school                     School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  turmaId                    String?           // Turma (sala) em que o aluno está
+  turma                      Turma?            @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  year                       Int               // Ano letivo
+  series                     String            // Ex: "1º Ano", "2º Ano EF"
+  situation                  SituacaoMatricula @default(CURSANDO)
+  conselhoTutelarNotifiedAt  DateTime?         // LDB: notificação ao Conselho Tutelar (faltas)
+  conselhoTutelarNotifiedById String?
+  conselhoTutelarNotifiedBy   User?             @relation(fields: [conselhoTutelarNotifiedById], references: [id], onDelete: SetNull)
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  grades                     Grade[]
+  documents                  Document[]
+  attendanceRecords          AttendanceRecord[]
+  @@unique([studentId, year])
+  @@index([schoolId, year])
+  @@index([studentId])
+  @@index([turmaId])
+}
+
+// Frequência por aula/dia (diário de classe) — uma linha por matrícula por data
+model AttendanceRecord {
+  id            String    @id @default(cuid())
+  enrollmentId  String
+  enrollment    Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  date          DateTime  @db.Date  // Dia letivo
+  present       Boolean   @default(true)  // true = presente, false = falta
+  justified     Boolean?  @default(false) // falta justificada (ex.: atestado) — só admin escola
+  justifiedAt   DateTime?
+  justifiedById String?
+  justifiedBy   User?     @relation(fields: [justifiedById], references: [id], onDelete: SetNull)
+  justifiedNote    String?   @db.VarChar(500) // ex.: "Atestado médico"
+  atestadoDocRef   String?   @db.VarChar(200) // doc do atestado (número ou referência) — armazenado na justificativa
+  atestadoImageUrl String?   @db.VarChar(500) // caminho da imagem do atestado escaneado (upload)
+  createdAt        DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@unique([enrollmentId, date])
+  @@index([enrollmentId])
+  @@index([date])
+}
+
+// Configuração de disciplinas por série (por escola)
+model GradeConfig {
+  id                  String              @id @default(cuid())
+  schoolId            String
+  school              School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  series              String
+  subject             String              // Nome da disciplina
+  workload            Int                 // Carga horária em horas
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  grades              Grade[]
+  teacherDisciplines  TeacherDiscipline[]
+  @@index([schoolId, series])
+}
+
+// Disciplinas que o professor leciona (um professor pode ter várias); code identifica o vínculo
+model TeacherDiscipline {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gradeConfigId String
+  gradeConfig   GradeConfig @relation(fields: [gradeConfigId], references: [id], onDelete: Cascade)
+  code          String      @unique  // Código único vinculado a este professor nesta disciplina (gerado ao cadastrar)
+  createdAt     DateTime    @default(now())
+  @@unique([userId, gradeConfigId])
+  @@index([userId])
+  @@index([gradeConfigId])
+  @@index([code])
+}
+
+// Notas por matrícula/disciplina (bimestral ou mensal)
+model Grade {
+  id            String     @id @default(cuid())
+  enrollmentId  String
+  enrollment    Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  gradeConfigId String
+  gradeConfig   GradeConfig @relation(fields: [gradeConfigId], references: [id], onDelete: Cascade)
+  bimester      Int        // 1 a 4 (ou período)
+  score1        Float?     // Nota 1 (0-10)
+  score2        Float?     // Nota 2 (0-10)
+  score3        Float?     // Nota 3 (0-10)
+  score4        Float?     // Nota 4 (0-10)
+  score         Float?     // Média das 4 notas (calculada)
+  frequency     Float?     // Frequência % (0-100)
+  recoveryScore Float?     // Nota recuperação
+  observations  String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  @@unique([enrollmentId, gradeConfigId, bimester])
+  @@index([enrollmentId])
+}
+
+// Declarações e documentos gerados (validação via QR Code)
+model Document {
+  id             String       @id @default(cuid())
+  type           DocumentType
+  schoolId        String
+  school         School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentId   String?
+  enrollment     Enrollment?  @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  data           Json         // Snapshot dos dados da declaração
+  validationCode String       @unique // Código para validação pública (QR Code)
+  fileUrl        String?      // URL do PDF gerado (se armazenado)
+  createdAt      DateTime     @default(now())
+  @@index([schoolId, type])
+  @@index([studentId])
+}

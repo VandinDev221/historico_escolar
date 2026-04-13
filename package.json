@@ -1,0 +1,20 @@
+{
+  "name": "armazena-historico",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema SaaS multi-tenancy para histórico escolar municipal",
+  "scripts": {
+    "backend:dev": "cd backend && npm run start:dev",
+    "backend:build": "cd backend && npm run build",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "db:generate": "cd backend && npx prisma generate",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:studio": "cd backend && npx prisma studio",
+    "load-test": "cd backend && npm run load-test",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": ["educacao", "historico-escolar", "saas", "multi-tenant"],
+  "license": "MIT"
+}
