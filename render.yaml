@@ -4,11 +4,11 @@
 #
 # Neon (duas URIs no painel da Render):
 #   - DATABASE_URL = connection string **Pooled** (host com "-pooler").
-#   - DIRECT_URL   = connection string **Direct** (host sem "-pooler"). Obrigatória: `prisma migrate deploy` usa
-#     advisory lock e estoura P1002 com só o pooler.
+#   - DATABASE_URL_UNPOOLED = connection string **Direct** (host sem "-pooler"). Obrigatória para `migrate deploy`
+#     (advisory lock; erro P1002 com só o pooler).
 #   SSL: ?sslmode=require nas duas se o console não incluir.
 #
-# No Blueprint, o Render pede DATABASE_URL e DIRECT_URL (sync: false).
+# No Blueprint, o Render pede DATABASE_URL e DATABASE_URL_UNPOOLED (sync: false).
 #
 # Depois: na Vercel, BACKEND_URL = URL pública desta API na Render.
 # Ajuste CORS_ORIGIN / APP_PUBLIC_URL no painel se não for historico-escolar.vercel.app
@@ -33,7 +33,7 @@ services:
         value: production
       - key: DATABASE_URL
         sync: false
-      - key: DIRECT_URL
+      - key: DATABASE_URL_UNPOOLED
         sync: false
       - key: JWT_SECRET
         generateValue: true

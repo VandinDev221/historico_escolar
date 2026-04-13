@@ -8,8 +8,8 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // Neon pooler: `migrate deploy` usa advisory lock — use conexão Direct aqui (ver DIRECT_URL no .env.example).
-  directUrl = env("DIRECT_URL")
+  // Neon: conexão **sem pooler** para `migrate deploy` (advisory lock). Mesmo valor que a Neon chama de unpooled.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum UserRole {
