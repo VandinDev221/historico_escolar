@@ -3,8 +3,8 @@ node_modules/
 .pnp
 .pnp.js
 
-# Build
-dist/
+# Build (use caminhos explícitos: "dist/" na raiz fazia a Render ignorar backend/dist no deploy)
+backend/dist/
 build/
 .next/
 out/
