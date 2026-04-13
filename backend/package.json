@@ -23,6 +23,7 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:city": "ts-node prisma/seed-city.ts",
     "prisma:seed:fill-empty": "ts-node prisma/seed-fill-empty-schools.ts",
+    "seed:alunos": "ts-node prisma/seed-fill-empty-schools.ts",
     "load-test": "node scripts/load-test.mjs"
   },
   "prisma": {
