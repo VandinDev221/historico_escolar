@@ -100,6 +100,31 @@ npm run prisma:seed:city
 - Pode levar **15–30 min**. Para teste rápido, edite `backend/prisma/seed-city.ts`: reduza `ALUNOS_POR_ESCOLA` (ex.: 50) e `NUM_ESCOLAS` (ex.: 3).
 - Se já houver dados dessas escolas, o script limpa alunos/matrículas/notas antes de gerar de novo.
 
+### 5.1 Dados na Neon / produção (o que vês na Vercel)
+
+A **Vercel** só serve o frontend; **escolas e alunos** vêm da base **Postgres na Neon** (API na Render). O deploy padrão só corre o seed **pequeno** (`prisma db seed` → uma escola “EMEF Exemplo”). Os **muitos alunos / várias escolas** no teu Docker vêm do script **`prisma:seed:city`** (`seed-city.ts`), que **não** corre automaticamente na Render (seria demasiado lento em cada arranque).
+
+**Alinhar produção ao “volume” do local (recomendado)** — gera de novo a mesma *estrutura* de massa (números iguais aos que estão em `seed-city.ts` no repositório; nomes/CPFs são aleatórios):
+
+1. Confirma que a Neon já tem as **migrações** aplicadas (ex.: deploy na Render com `migrate deploy`).
+2. No teu PC, na pasta `backend`, aponta o Prisma para a **Neon** (copia as connection strings do painel Neon; pooled + direct como no `env.sample`):
+
+```powershell
+cd backend
+$env:DATABASE_URL = "postgresql://USER:PASS@HOST-POOLER/neondb?sslmode=require"
+$env:DATABASE_URL_UNPOOLED = "postgresql://USER:PASS@HOST-DIRECT/neondb?sslmode=require"
+npm run prisma:seed:city
+```
+
+3. Espera **15–30 min** (ou reduz temporariamente `NUM_ESCOLAS` / `ALUNOS_POR_ESCOLA` em `prisma/seed-city.ts` para um teste mais rápido). O `admin@escola.municipio.gov.br` passa a estar ligado à **primeira** EMEF do lote “Cidade Grande”.
+
+**Cópia fiel do Postgres local → Neon** (mesmos IDs e linhas que no Docker): com as migrações iguais nas duas bases, usa `pg_dump` no local e `pg_restore` na Neon (com `--clean --if-exists` apaga dados existentes no destino — faz backup antes). Exemplo (ajusta utilizador/host):
+
+```bash
+pg_dump -h localhost -p 5432 -U postgres -d armazena_historico -Fc --no-owner -f backup-local.dump
+# Na Neon: PGSSLMODE=require pg_restore -h EP-xxx.region.aws.neon.tech -U USER -d neondb --clean --if-exists --no-owner backup-local.dump
+```
+
 ### 6. Logs em tempo real (desenvolvedor)
 
 Logado como **Super Admin**, acesse **/dev/logs** (não há link no menu). Você verá:
