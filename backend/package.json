@@ -2,6 +2,9 @@
   "name": "armazena-historico-backend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
