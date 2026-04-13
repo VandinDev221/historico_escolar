@@ -34,6 +34,12 @@ armazena_historico/
 └── package.json            # Scripts raiz
 ```
 
+## Deploy (Vercel + API na Render)
+
+- O **`vercel.json` na raiz** faz o build em `frontend/` e define **`outputDirectory`: `frontend/.next`** (sem symlink), para o App Router e o proxy **`/api/*`** serem empacotados corretamente.
+- Na Vercel, define **`BACKEND_URL`** = URL pública HTTPS da API (Render), **sem barra no fim**.
+- Se o deploy falhar ou quiseres simplificar: em **Project Settings → General → Root Directory** usa **`frontend`**, remove overrides de *Build Command* no painel e deixa o **`frontend/vercel.json`** + `package.json` do Next assumirem o fluxo.
+
 ## Pré-requisitos
 
 - Node.js 18+

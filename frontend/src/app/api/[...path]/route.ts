@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function backendBase(): string {
   return (process.env.BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
@@ -26,8 +27,13 @@ const STRIP_RESPONSE_HEADERS = [
   'content-length',
 ];
 
-async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
-  const path = pathSegments?.length ? pathSegments.join('/') : '';
+function pathFromCtx(params: { path?: string[] } | undefined): string[] {
+  const p = params?.path;
+  return Array.isArray(p) ? p : [];
+}
+
+async function proxy(req: NextRequest, pathSegments: string[]) {
+  const path = pathSegments.length ? pathSegments.join('/') : '';
   const upstreamUrl = `${backendBase()}/api/${path}${req.nextUrl.search}`;
 
   const headers = new Headers();
@@ -51,11 +57,13 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
   let res: Response;
   try {
     res = await fetch(upstreamUrl, init);
-  } catch {
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       {
         message:
-          'API indisponível. Na Vercel, defina a variável BACKEND_URL com a URL pública do backend (NestJS).',
+          'API indisponível. Na Vercel, defina BACKEND_URL com a URL pública do backend (NestJS na Render).',
+        detail: process.env.NODE_ENV === 'development' ? detail : undefined,
       },
       { status: 503 }
     );
@@ -66,39 +74,64 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
     out.delete(h);
   }
 
-  return new NextResponse(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: out,
-  });
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  const bufferResponse =
+    ct.includes('application/json') ||
+    ct.startsWith('text/') ||
+    res.status >= 400 ||
+    req.method === 'HEAD';
+
+  try {
+    if (bufferResponse) {
+      if (req.method === 'HEAD') {
+        return new NextResponse(null, { status: res.status, statusText: res.statusText, headers: out });
+      }
+      const body = await res.text();
+      return new NextResponse(body, { status: res.status, statusText: res.statusText, headers: out });
+    }
+    const buf = await res.arrayBuffer();
+    return new NextResponse(buf, { status: res.status, statusText: res.statusText, headers: out });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro ao ler resposta do backend';
+    return NextResponse.json({ message: 'Falha no proxy da API.', detail: msg }, { status: 502 });
+  }
 }
 
-type RouteCtx = { params: { path: string[] } };
+type RouteCtx = { params: { path?: string[] } };
 
-export function GET(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+async function handle(req: NextRequest, ctx: RouteCtx) {
+  try {
+    return await proxy(req, pathFromCtx(ctx.params));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+    return NextResponse.json({ message: 'Erro interno no proxy.', detail: msg }, { status: 500 });
+  }
 }
 
-export function HEAD(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
 
-export function POST(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function HEAD(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
 
-export function PUT(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function POST(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
 
-export function PATCH(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function PUT(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
 
-export function DELETE(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
 
-export function OPTIONS(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.path);
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
+}
+
+export async function OPTIONS(req: NextRequest, ctx: RouteCtx) {
+  return handle(req, ctx);
 }
