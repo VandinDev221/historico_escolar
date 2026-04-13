@@ -2,9 +2,7 @@
 # https://render.com/docs/infrastructure-as-code
 #
 # 1) Dashboard → New → Blueprint → conecte este repositório.
-# 2) Na criação, o Render pedirá valores para variáveis com sync: false:
-#    - CORS_ORIGIN: URL do frontend (ex.: https://historico-escolar.vercel.app)
-#    - APP_PUBLIC_URL: mesma URL (links de validação de documentos)
+# 2) CORS_ORIGIN e APP_PUBLIC_URL vêm com a URL da Vercel abaixo; se o seu domínio for outro, altere no painel (Environment).
 # 3) Na Vercel, defina BACKEND_URL = URL pública deste serviço (ex.: https://historico-escolar-api.onrender.com)
 # Plano free: sem preDeployCommand — migrações rodam no start antes do Nest.
 
@@ -41,6 +39,6 @@ services:
       - key: DISABLE_DEV_ROUTES
         value: "true"
       - key: CORS_ORIGIN
-        sync: false
+        value: https://historico-escolar.vercel.app
       - key: APP_PUBLIC_URL
-        sync: false
+        value: https://historico-escolar.vercel.app
