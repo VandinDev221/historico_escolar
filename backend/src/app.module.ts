@@ -18,12 +18,14 @@ import { StudentDocumentsModule } from './modules/student-documents/student-docu
 import { DevModule } from './modules/dev/dev.module';
 import { SearchModule } from './modules/search/search.module';
 import { TurmasModule } from './modules/turmas/turmas.module';
+import { RootController } from './root.controller';
 import { APP_FILTER } from '@nestjs/core';
 import { IpThrottlerGuard } from './shared/guards/ip-throttler.guard';
 import { DevLogMiddleware } from './shared/logger/dev-log.middleware';
 import { DevLogExceptionFilter } from './shared/logger/dev-log-exception.filter';
 
 @Module({
+  controllers: [RootController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRootAsync({

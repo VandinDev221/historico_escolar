@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
@@ -16,7 +16,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api', {
-    exclude: ['api/docs', 'api/docs-json'],
+    exclude: [
+      'api/docs',
+      'api/docs-json',
+      { path: '/', method: RequestMethod.GET },
+      { path: '/', method: RequestMethod.HEAD },
+      { path: 'favicon.ico', method: RequestMethod.GET },
+    ],
   });
 
   if ((process.env.TRUST_PROXY ?? 'false').toLowerCase() === 'true') {
