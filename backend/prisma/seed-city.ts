@@ -1,7 +1,11 @@
 /**
  * Seed "Cidade Grande" — gera dados em volume para testar o sistema.
  * Executar: npm run prisma:seed:city
- * Ajuste NUM_ESCOLAS e ALUNOS_POR_ESCOLA abaixo para testes mais rápidos ou mais dados.
+ *
+ * Escala (padrão = README): 18 escolas × 350 alunos. Sobrescrever com env:
+ *   SEED_CITY_NUM_ESCOLAS, SEED_CITY_ALUNOS_POR_ESCOLA
+ * Desativar na Render (emergência): SKIP_SEED_CITY=1
+ * Se a base já tiver ~97% dos alunos esperados neste município, o script sai logo (cold starts rápidos).
  */
 import { PrismaClient, UserRole, SituacaoMatricula } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -40,6 +44,28 @@ function cpfFromCounter(n: number): string {
 async function main() {
   console.log('🌆 Iniciando seed Cidade Grande...');
 
+  if (process.env.SKIP_SEED_CITY === '1') {
+    console.log('SKIP_SEED_CITY=1 — seed Cidade Grande ignorado.');
+    return;
+  }
+
+  const NUM_ESCOLAS = Number.parseInt(process.env.SEED_CITY_NUM_ESCOLAS ?? '18', 10) || 18;
+  const ALUNOS_POR_ESCOLA = Number.parseInt(process.env.SEED_CITY_ALUNOS_POR_ESCOLA ?? '350', 10) || 350;
+  const expectedStudents = NUM_ESCOLAS * ALUNOS_POR_ESCOLA;
+
+  const munCheck = await prisma.municipality.findUnique({ where: { id: 'seed-cidade-grande' } });
+  if (munCheck) {
+    const existingStudents = await prisma.student.count({
+      where: { school: { municipalityId: 'seed-cidade-grande' } },
+    });
+    if (existingStudents >= Math.floor(expectedStudents * 0.97)) {
+      console.log(
+        `Cidade Grande já populada (${existingStudents} alunos, meta ~${expectedStudents}). Seed-city em skip.`,
+      );
+      return;
+    }
+  }
+
   const hash = await bcrypt.hash('admin123', 10);
 
   const municipality = await prisma.municipality.upsert({
@@ -64,10 +90,8 @@ async function main() {
     },
   });
 
-  // Massa grande: 300–400 alunos/escola. Para teste rápido use ex.: 5 escolas e 30 alunos.
-  const NUM_ESCOLAS = 18;
-  const ALUNOS_POR_ESCOLA = 350;
   const ANOS_LETIVOS = [2022, 2023, 2024];
+  console.log(`   Parâmetros: ${NUM_ESCOLAS} escolas × ${ALUNOS_POR_ESCOLA} alunos/escola (~${expectedStudents} alunos).`);
 
   const schools: { id: string; name: string; code: string }[] = [];
   for (let i = 1; i <= NUM_ESCOLAS; i++) {
@@ -216,7 +240,8 @@ async function main() {
     },
   });
 
-  for (let i = 1; i <= 3; i++) {
+  const maxProfs = Math.min(3, schools.length);
+  for (let i = 1; i <= maxProfs; i++) {
     await prisma.user.upsert({
       where: { email: `professor${i}@escola.municipio.gov.br` },
       update: {},

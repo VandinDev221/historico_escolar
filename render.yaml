@@ -15,7 +15,8 @@
 # Ajuste CORS_ORIGIN / APP_PUBLIC_URL no painel se não for historico-escolar.vercel.app
 #
 # Build: NODE_ENV=production faz o npm ci omitir devDependencies; --include=dev instala @nestjs/cli e prisma.
-# Start: migrate + db seed (idempotente: cria admin/superadmin se ainda não existirem — evita 401 em base nova).
+# Start: migrate + db seed + seed Cidade Grande (Neon). O seed-city sai logo se já houver ~97% dos alunos.
+#   SKIP_SEED_CITY=1 no painel desliga o seed-city (ex.: timeout no 1.º deploy). Opcional: SEED_CITY_NUM_ESCOLAS / SEED_CITY_ALUNOS_POR_ESCOLA.
 
 services:
   - type: web
@@ -26,7 +27,7 @@ services:
     branch: main
     rootDir: backend
     buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && npx prisma db seed && npm run start:prod
+    startCommand: npx prisma migrate deploy && npx prisma db seed && npm run prisma:seed:city && npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION

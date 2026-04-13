@@ -39,7 +39,7 @@ armazena_historico/
 - O **`vercel.json` na raiz** faz o build em `frontend/` e define **`outputDirectory`: `frontend/.next`** (sem symlink), para o App Router e o proxy **`/api/*`** serem empacotados corretamente.
 - Na Vercel, define **`BACKEND_URL`** = URL pública HTTPS da API (Render), **sem barra no fim**.
 - Se o deploy falhar ou quiseres simplificar: em **Project Settings → General → Root Directory** usa **`frontend`**, remove overrides de *Build Command* no painel e deixa o **`frontend/vercel.json`** + `package.json` do Next assumirem o fluxo.
-- Na Render, cada arranque corre **`migrate deploy`** e depois **`prisma db seed`** (contas `superadmin` / `admin escolar` só são criadas se ainda não existirem). Login inicial: **admin123** (ver secção Login abaixo).
+- Na Render, cada arranque corre **`migrate deploy`**, **`prisma db seed`** e **`prisma:seed:city`** (Cidade Grande → Neon: 18 EMEFs, ~350 alunos/escola, etc.). Na **primeira** vez pode levar **15–30 min**; depois o script **deteta** se a massa já existe e **sai em segundos**. Emergência: `SKIP_SEED_CITY=1` no painel da Render. Login: **admin123** (ver Login abaixo).
 
 ## Pré-requisitos
 
@@ -89,36 +89,23 @@ App: **http://localhost:3000**
 
 ### 5. Dados em volume (Cidade Grande) — **300+ alunos por escola**
 
-Os **300+ alunos por escola** só existem se você rodar o seed **Cidade Grande** (o seed padrão `npx prisma db seed` cria poucos dados):
+O seed **Cidade Grande** cria o município **Cidade Grande**, **18 EMEFs**, **350 alunos por escola** (~6.300 no total), matrículas (2022–2024) e notas. O seed pequeno (`npx prisma db seed`) continua a criar só a “EMEF Exemplo”; **a massa grande é este script**.
+
+**Em produção (Render → Neon):** no arranque do serviço já corre `npm run prisma:seed:city` depois das migrações e do seed base. O que vês na **Vercel** vem desta base. Na **primeira** subida completa pode levar **15–30 min**; quando a base já está populada, o script **deteta** e termina em segundos.
+
+**Local (manual):**
 
 ```bash
 cd backend
 npm run prisma:seed:city
 ```
 
-- Cria município **Cidade Grande**, 18 EMEFs, **350 alunos por escola** (~6.300 no total), matrículas (2022–2024) e notas.
-- Pode levar **15–30 min**. Para teste rápido, edite `backend/prisma/seed-city.ts`: reduza `ALUNOS_POR_ESCOLA` (ex.: 50) e `NUM_ESCOLAS` (ex.: 3).
-- Se já houver dados dessas escolas, o script limpa alunos/matrículas/notas antes de gerar de novo.
+- Variáveis opcionais (também na Render): `SEED_CITY_NUM_ESCOLAS`, `SEED_CITY_ALUNOS_POR_ESCOLA` (padrão 18 e 350). `SKIP_SEED_CITY=1` desliga o seed-city (ex.: timeout no primeiro deploy — depois corre `npm run prisma:seed:city` uma vez no PC apontando à Neon).
+- Se já houver dados dessas escolas mas **abaixo** do limiar de “já completo”, o script **limpa** alunos/matrículas/notas dessas EMEFs e gera de novo.
 
-### 5.1 Dados na Neon / produção (o que vês na Vercel)
+### 5.1 Cópia fiel do Postgres local → Neon (opcional)
 
-A **Vercel** só serve o frontend; **escolas e alunos** vêm da base **Postgres na Neon** (API na Render). O deploy padrão só corre o seed **pequeno** (`prisma db seed` → uma escola “EMEF Exemplo”). Os **muitos alunos / várias escolas** no teu Docker vêm do script **`prisma:seed:city`** (`seed-city.ts`), que **não** corre automaticamente na Render (seria demasiado lento em cada arranque).
-
-**Alinhar produção ao “volume” do local (recomendado)** — gera de novo a mesma *estrutura* de massa (números iguais aos que estão em `seed-city.ts` no repositório; nomes/CPFs são aleatórios):
-
-1. Confirma que a Neon já tem as **migrações** aplicadas (ex.: deploy na Render com `migrate deploy`).
-2. No teu PC, na pasta `backend`, aponta o Prisma para a **Neon** (copia as connection strings do painel Neon; pooled + direct como no `env.sample`):
-
-```powershell
-cd backend
-$env:DATABASE_URL = "postgresql://USER:PASS@HOST-POOLER/neondb?sslmode=require"
-$env:DATABASE_URL_UNPOOLED = "postgresql://USER:PASS@HOST-DIRECT/neondb?sslmode=require"
-npm run prisma:seed:city
-```
-
-3. Espera **15–30 min** (ou reduz temporariamente `NUM_ESCOLAS` / `ALUNOS_POR_ESCOLA` em `prisma/seed-city.ts` para um teste mais rápido). O `admin@escola.municipio.gov.br` passa a estar ligado à **primeira** EMEF do lote “Cidade Grande”.
-
-**Cópia fiel do Postgres local → Neon** (mesmos IDs e linhas que no Docker): com as migrações iguais nas duas bases, usa `pg_dump` no local e `pg_restore` na Neon (com `--clean --if-exists` apaga dados existentes no destino — faz backup antes). Exemplo (ajusta utilizador/host):
+A **Vercel** só mostra dados da **Neon**. Se precisares dos **mesmos IDs** que no Docker (cópia byte a byte), com as migrações iguais nas duas bases usa `pg_dump` no local e `pg_restore` na Neon (`--clean --if-exists` apaga o destino — faz backup antes):
 
 ```bash
 pg_dump -h localhost -p 5432 -U postgres -d armazena_historico -Fc --no-owner -f backup-local.dump
