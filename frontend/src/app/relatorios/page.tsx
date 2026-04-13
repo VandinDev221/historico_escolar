@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ interface School {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export default function RelatoriosPage() {
+function RelatoriosPageContent() {
   const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -176,5 +176,19 @@ export default function RelatoriosPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function RelatoriosPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <p className="text-muted-foreground">Carregando...</p>
+        </AppLayout>
+      }
+    >
+      <RelatoriosPageContent />
+    </Suspense>
   );
 }

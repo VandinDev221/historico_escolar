@@ -355,10 +355,20 @@ export default function DevLogsPage() {
 
   const exportCsv = () => {
     const list = tab === 'por-ip' ? filteredByIp.flatMap(([, entries]) => entries) : filteredForTab;
-    const headers = ['ts', 'level', 'method', 'path', 'statusCode', 'durationMs', 'ip', 'suspiciousReason', 'message'];
+    const headers: (keyof LogEntry)[] = [
+      'ts',
+      'level',
+      'method',
+      'path',
+      'statusCode',
+      'durationMs',
+      'ip',
+      'suspiciousReason',
+      'message',
+    ];
     const rows = list.map((e) =>
       headers.map((h) => {
-        const v = (e as Record<string, unknown>)[h];
+        const v = e[h];
         const s = v == null ? '' : String(v);
         return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
       }).join(','),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ interface School {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export default function DiarioRelatorioPage() {
+function DiarioRelatorioPageContent() {
   const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [schoolId, setSchoolId] = useState(searchParams.get('schoolId') || '');
@@ -249,3 +249,16 @@ export default function DiarioRelatorioPage() {
   );
 }
 
+export default function DiarioRelatorioPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <p className="text-muted-foreground">Carregando...</p>
+        </AppLayout>
+      }
+    >
+      <DiarioRelatorioPageContent />
+    </Suspense>
+  );
+}

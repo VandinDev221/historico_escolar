@@ -184,6 +184,7 @@ export default function UsuariosPage() {
 
       {modal === 'create' && (
         <UserForm
+          mode="create"
           schools={schools ?? []}
           onClose={() => setModal(null)}
           onSubmit={(payload) => createMutation.mutate(payload)}
@@ -193,6 +194,7 @@ export default function UsuariosPage() {
       )}
       {modal === 'edit' && selected && (
         <UserForm
+          mode="edit"
           schools={schools ?? []}
           initial={selected}
           onClose={() => {
@@ -202,7 +204,6 @@ export default function UsuariosPage() {
           onSubmit={(payload) => updateMutation.mutate({ id: selected.id, payload })}
           isSubmitting={updateMutation.isPending}
           error={error}
-          isEdit
         />
       )}
       {modal === 'delete' && selected && (
@@ -220,23 +221,30 @@ export default function UsuariosPage() {
   );
 }
 
-function UserForm({
-  schools,
-  initial,
-  onClose,
-  onSubmit,
-  isSubmitting,
-  error,
-  isEdit = false,
-}: {
-  schools: School[];
-  initial?: UserListItem;
-  onClose: () => void;
-  onSubmit: (payload: CreateUserPayload | UpdateUserPayload) => void;
-  isSubmitting: boolean;
-  error: string | null;
-  isEdit?: boolean;
-}) {
+type UserFormProps =
+  | {
+      mode: 'create';
+      schools: School[];
+      onClose: () => void;
+      onSubmit: (payload: CreateUserPayload) => void;
+      isSubmitting: boolean;
+      error: string | null;
+    }
+  | {
+      mode: 'edit';
+      schools: School[];
+      initial: UserListItem;
+      onClose: () => void;
+      onSubmit: (payload: UpdateUserPayload) => void;
+      isSubmitting: boolean;
+      error: string | null;
+    };
+
+function UserForm(props: UserFormProps) {
+  const { schools, onClose, isSubmitting, error } = props;
+  const isEdit = props.mode === 'edit';
+  const initial = isEdit ? props.initial : undefined;
+
   const [name, setName] = useState(initial?.name ?? '');
   const [email, setEmail] = useState(initial?.email ?? '');
   const [password, setPassword] = useState('');
@@ -261,11 +269,11 @@ function UserForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEdit) {
+    if (props.mode === 'edit') {
       const payload: UpdateUserPayload = { name, email, role, schoolId: schoolId || null, active };
       if (password.trim()) payload.password = password;
       if (role === 'PROFESSOR') payload.gradeConfigIds = gradeConfigIds;
-      onSubmit(payload);
+      props.onSubmit(payload);
     } else {
       if (!password.trim()) return;
       const payload: CreateUserPayload = {
@@ -276,7 +284,7 @@ function UserForm({
         schoolId: role === 'SUPER_ADMIN' ? null : schoolId || null,
       };
       if (role === 'PROFESSOR') payload.gradeConfigIds = gradeConfigIds;
-      onSubmit(payload);
+      props.onSubmit(payload);
     }
   };
 
@@ -351,7 +359,7 @@ function UserForm({
                   setGradeConfigIds([]);
                 }}
                 className="w-full rounded-md border border-border px-3 py-2"
-                required={role !== 'SUPER_ADMIN'}
+                required
               >
                 <option value="">Selecione...</option>
                 {schools.map((s) => (

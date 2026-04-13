@@ -686,7 +686,8 @@ export interface CreateEnrollmentPayload {
   year: number;
   series: string;
   situation?: 'CURSANDO' | 'CONCLUIDO' | 'TRANSFERIDO' | 'EVADIDO';
-  turmaId?: string;
+  /** Na atualização, `null` remove a turma da matrícula (alinhado ao PATCH do backend). */
+  turmaId?: string | null;
 }
 
 export async function createEnrollment(

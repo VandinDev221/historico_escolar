@@ -65,7 +65,7 @@ export default function AlunoDetalhePage() {
   >('CURSANDO');
   const [editTurmaId, setEditTurmaId] = useState<string>('');
   const [editYearForTurmas, setEditYearForTurmas] = useState<number | null>(null);
-  const novaMatriculaRef = useRef<HTMLDivElement>(null);
+  const novaMatriculaRef = useRef<HTMLElement | null>(null);
   const hasScrolledToHashRef = useRef(false);
   const [matriculaMsg, setMatriculaMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 

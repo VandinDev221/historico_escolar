@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ interface School {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export default function RecuperacaoPage() {
+function RecuperacaoPageContent() {
   const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [schoolId, setSchoolId] = useState(searchParams.get('schoolId') || '');
@@ -123,5 +123,19 @@ export default function RecuperacaoPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function RecuperacaoPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <p className="text-muted-foreground">Carregando...</p>
+        </AppLayout>
+      }
+    >
+      <RecuperacaoPageContent />
+    </Suspense>
   );
 }
