@@ -1,10 +1,17 @@
 /**
- * Preenche escolas sem nenhum aluno com alunos, matrículas (2024) e notas de demonstração.
- * Útil quando só existem escolas (cadastro manual, seed parcial ou falha no seed-city).
+ * Preenche escolas com alunos, matrículas (2024) e notas de demonstração.
  *
  *   npm run prisma:seed:fill-empty
+ *   npm run seed:alunos
  *
- * Opcional: SEED_FILL_PER_SCHOOL (padrão 30), SEED_FILL_MAX_SCHOOLS (padrão 150), SKIP_SEED_FILL=1
+ * Uma escola de cada vez (recomendado):
+ *   SEED_FILL_SCHOOL_ID=clxx...   ou   SEED_FILL_SCHOOL_CODE=35600001
+ *   SEED_FILL_PER_SCHOOL=30     (opcional)
+ *
+ * Todas as escolas sem alunos (comportamento antigo, sem ID/código):
+ *   SEED_FILL_MAX_SCHOOLS=150
+ *
+ * SKIP_SEED_FILL=1 ignora o script.
  */
 import { PrismaClient, SituacaoMatricula } from '@prisma/client';
 
@@ -45,6 +52,75 @@ async function ensureGradeConfigs(schoolId: string): Promise<void> {
   });
 }
 
+type SchoolRow = { id: string; name: string; code: string | null };
+
+async function fillStudentsForSchool(school: SchoolRow, perSchool: number, seq: { n: number }): Promise<number> {
+  await ensureGradeConfigs(school.id);
+  const configs = await prisma.gradeConfig.findMany({
+    where: { schoolId: school.id, series: SERIES_DEFAULT },
+  });
+  if (configs.length === 0) {
+    console.warn(`  [${school.name}] sem GradeConfig após ensure — a saltar.`);
+    return 0;
+  }
+
+  let created = 0;
+  for (let a = 0; a < perSchool; a++) {
+    const cpf = cpfFromCounter(seq.n++);
+    const nome = `${pick(NOMES)} ${pick(SOBRENOMES)}`;
+    const bairro = pick(BAIRROS);
+    const birthYear = between(2014, 2018);
+    const birthDate = new Date(birthYear, between(0, 11), between(1, 28));
+
+    const student = await prisma.student.create({
+      data: {
+        schoolId: school.id,
+        name: nome,
+        birthDate,
+        cpf,
+        address: `Rua ${pick(SOBRENOMES)}, ${between(1, 999)} - ${bairro}`,
+        neighborhood: bairro,
+        contacts: {
+          create: [
+            {
+              name: `Responsável de ${nome.split(' ')[0]}`,
+              phone: `19${between(90000, 99999)}${between(1000, 9999)}`,
+              isPrimary: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        studentId: student.id,
+        schoolId: school.id,
+        year: 2024,
+        series: SERIES_DEFAULT,
+        situation: SituacaoMatricula.CURSANDO,
+      },
+    });
+
+    for (const config of configs) {
+      for (let bim = 1; bim <= 4; bim++) {
+        await prisma.grade.create({
+          data: {
+            enrollmentId: enrollment.id,
+            gradeConfigId: config.id,
+            bimester: bim,
+            score: between(50, 100) / 10,
+            frequency: between(75, 100),
+          },
+        });
+      }
+    }
+    created++;
+  }
+  console.log(`  ✅ ${school.name}: ${created} alunos com notas (2024, ${SERIES_DEFAULT}).`);
+  return created;
+}
+
 async function main(): Promise<void> {
   if (process.env.SKIP_SEED_FILL === '1') {
     console.log('SKIP_SEED_FILL=1 — seed-fill-empty ignorado.');
@@ -53,90 +129,64 @@ async function main(): Promise<void> {
 
   const perSchool = Number.parseInt(process.env.SEED_FILL_PER_SCHOOL ?? '30', 10) || 30;
   const maxSchools = Number.parseInt(process.env.SEED_FILL_MAX_SCHOOLS ?? '150', 10) || 150;
+  const schoolIdEnv = process.env.SEED_FILL_SCHOOL_ID?.trim();
+  const schoolCodeEnv = process.env.SEED_FILL_SCHOOL_CODE?.trim();
 
-  const schools = await prisma.school.findMany({
-    where: { students: { none: {} } },
-    take: maxSchools,
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true, code: true },
-  });
+  let schools: SchoolRow[];
 
-  if (schools.length === 0) {
-    console.log('Nenhuma escola sem alunos. Nada a fazer.');
-    return;
+  if (schoolIdEnv || schoolCodeEnv) {
+    const school = await prisma.school.findFirst({
+      where: schoolIdEnv ? { id: schoolIdEnv } : { code: schoolCodeEnv! },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        _count: { select: { students: true } },
+      },
+    });
+    if (!school) {
+      console.error(
+        schoolIdEnv
+          ? `Escola não encontrada com id="${schoolIdEnv}".`
+          : `Escola não encontrada com code="${schoolCodeEnv}".`,
+      );
+      process.exit(1);
+    }
+    if (school._count.students > 0) {
+      console.error(
+        `A escola "${school.name}" já tem ${school._count.students} aluno(s). ` +
+          `Usa outra escola (outro id/código) ou só preenche escolas vazias.`,
+      );
+      process.exit(1);
+    }
+    schools = [{ id: school.id, name: school.name, code: school.code }];
+    console.log(`Modo uma escola: ${school.name} (id=${school.id}${school.code ? `, código=${school.code}` : ''}).`);
+  } else {
+    schools = await prisma.school.findMany({
+      where: { students: { none: {} } },
+      take: maxSchools,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (schools.length === 0) {
+      console.log('Nenhuma escola sem alunos. Nada a fazer.');
+      console.log('Dica: define SEED_FILL_SCHOOL_ID ou SEED_FILL_SCHOOL_CODE para preencher uma escola concreta.');
+      return;
+    }
+
+    console.log(`Encontradas ${schools.length} escolas sem alunos (máx. ${maxSchools}). ~${perSchool} alunos/escola.`);
   }
 
-  console.log(`Encontradas ${schools.length} escolas sem alunos (máx. ${maxSchools}). ~${perSchool} alunos/escola.`);
-
-  let seq = (await prisma.student.count()) + 500_000;
+  const seq = { n: (await prisma.student.count()) + 500_000 };
   let totalStudents = 0;
 
   for (const school of schools) {
-    await ensureGradeConfigs(school.id);
-    const configs = await prisma.gradeConfig.findMany({
-      where: { schoolId: school.id, series: SERIES_DEFAULT },
-    });
-    if (configs.length === 0) {
-      console.warn(`  [${school.name}] sem GradeConfig após ensure — a saltar.`);
-      continue;
-    }
-
-    for (let a = 0; a < perSchool; a++) {
-      const cpf = cpfFromCounter(seq++);
-      const nome = `${pick(NOMES)} ${pick(SOBRENOMES)}`;
-      const bairro = pick(BAIRROS);
-      const birthYear = between(2014, 2018);
-      const birthDate = new Date(birthYear, between(0, 11), between(1, 28));
-
-      const student = await prisma.student.create({
-        data: {
-          schoolId: school.id,
-          name: nome,
-          birthDate,
-          cpf,
-          address: `Rua ${pick(SOBRENOMES)}, ${between(1, 999)} - ${bairro}`,
-          neighborhood: bairro,
-          contacts: {
-            create: [
-              {
-                name: `Responsável de ${nome.split(' ')[0]}`,
-                phone: `19${between(90000, 99999)}${between(1000, 9999)}`,
-                isPrimary: true,
-              },
-            ],
-          },
-        },
-      });
-
-      const enrollment = await prisma.enrollment.create({
-        data: {
-          studentId: student.id,
-          schoolId: school.id,
-          year: 2024,
-          series: SERIES_DEFAULT,
-          situation: SituacaoMatricula.CURSANDO,
-        },
-      });
-
-      for (const config of configs) {
-        for (let bim = 1; bim <= 4; bim++) {
-          await prisma.grade.create({
-            data: {
-              enrollmentId: enrollment.id,
-              gradeConfigId: config.id,
-              bimester: bim,
-              score: between(50, 100) / 10,
-              frequency: between(75, 100),
-            },
-          });
-        }
-      }
-      totalStudents++;
-    }
-    console.log(`  ✅ ${school.name}: ${perSchool} alunos com notas (2024, ${SERIES_DEFAULT}).`);
+    const n = await fillStudentsForSchool(school, perSchool, seq);
+    totalStudents += n;
   }
 
-  console.log(`\nConcluído: ${totalStudents} alunos criados em ${schools.length} escolas.`);
+  console.log(`\nConcluído: ${totalStudents} alunos criados em ${schools.length} escola(s).`);
 }
 
 main()
