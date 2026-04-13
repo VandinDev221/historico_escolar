@@ -1,16 +1,16 @@
-# Blueprint Render — API NestJS + PostgreSQL
+# Blueprint Render — API NestJS (Web Service free)
 # https://render.com/docs/infrastructure-as-code
 #
-# 1) Dashboard → New → Blueprint → conecte este repositório.
-# 2) CORS_ORIGIN e APP_PUBLIC_URL vêm com a URL da Vercel abaixo; se o seu domínio for outro, altere no painel (Environment).
-# 3) Na Vercel, defina BACKEND_URL = URL pública deste serviço (ex.: https://historico-escolar-api.onrender.com)
-# Plano free: sem preDeployCommand — migrações rodam no start antes do Nest.
-
-databases:
-  - name: historico-escolar-db
-    plan: free
-    region: oregon
-    databaseName: armazena_historico
+# PostgreSQL NÃO é criado aqui: a Render permite só UM banco Postgres "free" ativo por conta.
+# Opções:
+#   • Use um Postgres que você já tenha na Render (copie a Internal/External Database URL), ou
+#   • Apague o outro banco free antigo no dashboard e crie um novo Postgres manualmente, ou
+#   • Use Neon / Supabase / outro Postgres e cole a connection string.
+#
+# Na criação do Blueprint, o Render pedirá DATABASE_URL (sync: false).
+#
+# Depois do deploy: na Vercel defina BACKEND_URL = URL pública desta API.
+# CORS_ORIGIN / APP_PUBLIC_URL: ajuste no painel se não for historico-escolar.vercel.app
 
 services:
   - type: web
@@ -29,9 +29,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: historico-escolar-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: TRUST_PROXY
