@@ -54,8 +54,8 @@ Isso sobe PostgreSQL na porta 5432 e Redis na 6379.
 
 ```bash
 cd backend
-cp .env.example .env
-# Ajuste DATABASE_URL, DATABASE_URL_UNPOOLED (igual à DATABASE_URL no Docker local) e JWT_SECRET no .env
+cp env.sample .env          # PowerShell: copy env.sample .env
+# Ajuste DATABASE_URL, DATABASE_URL_UNPOOLED (no Docker local: mesma URL que DATABASE_URL) e JWT_SECRET no .env
 npm install
 npx prisma migrate deploy
 npx prisma db seed
@@ -68,6 +68,7 @@ Swagger: **http://localhost:3001/api/docs**
 
 ```bash
 cd frontend
+cp env.sample .env.local   # opcional; padrão local já aponta para localhost:3001
 npm install
 npm run dev
 ```
@@ -140,7 +141,7 @@ Acesso restrito ao perfil **SUPER_ADMIN** (desenvolvedor).
 
 ### Produção: pool de conexões e HTTPS
 
-- **Pool no PostgreSQL:** use `?connection_limit=20` na `DATABASE_URL` (ex.: `postgresql://user:pass@host:5432/armazena_historico?connection_limit=20`). Ver exemplo em `backend/.env.example`.
+- **Pool no PostgreSQL:** use `?connection_limit=20` na `DATABASE_URL` (ex.: `postgresql://user:pass@host:5432/armazena_historico?connection_limit=20`). Ver modelo em `backend/env.sample`.
 - **HTTPS:** sirva a API atrás de proxy reverso (Nginx, Caddy, etc.) com HTTPS e defina `TRUST_PROXY=true` no `.env` para que o rate limit use o IP real do cliente.
 
 ### Testes de carga e rate limit

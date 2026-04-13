@@ -10,10 +10,12 @@ build/
 out/
 *.tsbuildinfo
 
-# Env
+# Env (não versionar segredos nem ficheiros nomeados como .env.example)
 .env
 .env.local
 .env.*.local
+**/.env.example
+.env.example
 
 # IDE
 .idea/
