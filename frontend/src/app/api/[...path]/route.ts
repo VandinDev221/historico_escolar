@@ -7,6 +7,25 @@ function backendBase(): string {
   return (process.env.BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
 }
 
+/** Cabeçalhos que não devem ser reenviados ao upstream (fetch recalcula Content-Length com o body). */
+const SKIP_REQUEST_HEADERS = new Set([
+  'host',
+  'connection',
+  'content-length',
+  'transfer-encoding',
+  'keep-alive',
+  'te',
+  'trailer',
+]);
+
+/** Cabeçalhos da resposta do Nest que quebram o cliente se o body já veio descomprimido pelo fetch. */
+const STRIP_RESPONSE_HEADERS = [
+  'content-encoding',
+  'transfer-encoding',
+  'connection',
+  'content-length',
+];
+
 async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
   const path = pathSegments?.length ? pathSegments.join('/') : '';
   const upstreamUrl = `${backendBase()}/api/${path}${req.nextUrl.search}`;
@@ -14,7 +33,7 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
   const headers = new Headers();
   req.headers.forEach((value, key) => {
     const k = key.toLowerCase();
-    if (k === 'host' || k === 'connection') return;
+    if (SKIP_REQUEST_HEADERS.has(k)) return;
     headers.set(key, value);
   });
 
@@ -43,6 +62,10 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
   }
 
   const out = new Headers(res.headers);
+  for (const h of STRIP_RESPONSE_HEADERS) {
+    out.delete(h);
+  }
+
   return new NextResponse(res.body, {
     status: res.status,
     statusText: res.statusText,
